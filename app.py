@@ -22,7 +22,7 @@ class CurseurCompatible:
     def __init__(self, connexion):
         self.connexion = connexion
         self.est_postgres = bool(os.environ.get("DATABASE_URL"))
-        self.curseur = CurseurCompatible(connexion)
+        self.curseur = connexion.cursor()
 
     def execute(self, requete, parametres=None):
         if self.est_postgres:
@@ -722,12 +722,6 @@ def ajouter_code():
                     })
                     .catch(erreur => {
                         alert("Une erreur est survenue : " + erreur.message);
-                    });
-                                            alert(resultat.message);
-
-                        if (resultat.success) {
-                            window.location.href = "/codes-erreurs";
-                        }
                     });
                 }
     
