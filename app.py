@@ -22,7 +22,7 @@ class CurseurCompatible:
     def __init__(self, connexion):
         self.connexion = connexion
         self.est_postgres = bool(os.environ.get("DATABASE_URL"))
-        self.curseur = connexion.cursor()
+        self.curseur = CurseurCompatible(connexion)
 
     def execute(self, requete, parametres=None):
         if self.est_postgres:
@@ -307,7 +307,7 @@ def calculatrice():
 @app.route("/modifier-code/<code>", methods=["GET", "POST"])
 def modifier_code(code):
     connexion = connexion_base()
-    curseur = connexion.cursor()
+    curseur = CurseurCompatible(connexion)
 
     curseur.execute(
         "SELECT code, description FROM codes WHERE code = ?",
@@ -327,7 +327,7 @@ def modifier_code(code):
         description = request.form["description"]
 
         connexion = connexion_base()
-        curseur = connexion.cursor()
+        curseur = CurseurCompatible(connexion)
 
         curseur.execute(
             "UPDATE codes SET description = ? WHERE code = ?",
@@ -404,7 +404,7 @@ def modifier_code(code):
 @app.route("/supprimer-code/<code>", methods=["POST"])
 def supprimer_code(code):
     connexion = connexion_base()
-    curseur = connexion.cursor()
+    curseur = CurseurCompatible(connexion)
 
     curseur.execute(
         "DELETE FROM codes WHERE code = ?",
@@ -421,7 +421,7 @@ def supprimer_code(code):
 @app.route("/voir-code/<code>")
 def voir_code(code):
     connexion = connexion_base()
-    curseur = connexion.cursor()
+    curseur = CurseurCompatible(connexion)
 
     curseur.execute("SELECT code, description FROM codes")
     codes = dict(curseur.fetchall())
@@ -503,7 +503,7 @@ def voir_code(code):
 @app.route("/liste-codes")
 def liste_codes():
     connexion = connexion_base()
-    curseur = connexion.cursor()
+    curseur = CurseurCompatible(connexion)
 
     curseur.execute("SELECT code, description FROM codes")
     codes = dict(curseur.fetchall())
@@ -594,7 +594,7 @@ def ajouter_code():
         description = donnees["description"]
 
         connexion = connexion_base()
-        curseur = connexion.cursor()
+        curseur = CurseurCompatible(connexion)
 
         curseur.execute("SELECT code FROM codes WHERE code = ?", (code,))
 
@@ -706,9 +706,24 @@ def ajouter_code():
                             description: description
                         })
                     })
-                    .then(response => response.json())
+                    .then(async response => {
+                        if (!response.ok) {
+                            throw new Error("Erreur serveur : " + response.status);
+                        }
+
+                        return response.json();
+                    })
                     .then(resultat => {
                         alert(resultat.message);
+
+                        if (resultat.success) {
+                            window.location.href = "/codes-erreurs";
+                        }
+                    })
+                    .catch(erreur => {
+                        alert("Une erreur est survenue : " + erreur.message);
+                    });
+                                            alert(resultat.message);
 
                         if (resultat.success) {
                             window.location.href = "/codes-erreurs";
@@ -726,7 +741,7 @@ def ajouter_code():
 @app.route("/codes-erreurs")
 def codes_erreurs():
     connexion = connexion_base()
-    curseur = connexion.cursor()
+    curseur = CurseurCompatible(connexion)
 
     curseur.execute("SELECT code, description FROM codes")
     codes = dict(curseur.fetchall())
