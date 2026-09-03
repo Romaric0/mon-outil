@@ -2,10 +2,47 @@ from flask import Flask, render_template_string, request
 import json
 import os
 import sqlite3
+import psycopg2
+
+app = Flask(__name__)
+
+
+def connexion_base():
+    database_url = os.environ.get("DATABASE_URL")
+
+    if database_url:
+        return psycopg2.connect(database_url)
+
+    return sqlite3.connect(
+        os.path.join(os.path.dirname(__file__), "codes.db")
+    )
+
+
+class CurseurCompatible:
+    def __init__(self, connexion):
+        self.connexion = connexion
+        self.est_postgres = bool(os.environ.get("DATABASE_URL"))
+        self.curseur = connexion.cursor()
+
+    def execute(self, requete, parametres=None):
+        if self.est_postgres:
+            requete = requete.replace("?", "%s")
+
+        if parametres is None:
+            return self.curseur.execute(requete)
+
+        return self.curseur.execute(requete, parametres)
+
+    def fetchone(self):
+        return self.curseur.fetchone()
+
+    def fetchall(self):
+        return self.curseur.fetchall()
+
 
 def initialiser_base():
-    connexion = sqlite3.connect("codes.db")
-    curseur = connexion.cursor()
+    connexion = connexion_base()
+    curseur = CurseurCompatible(connexion)
 
     curseur.execute("""
         CREATE TABLE IF NOT EXISTS codes (
@@ -17,14 +54,17 @@ def initialiser_base():
     connexion.commit()
     connexion.close()
 
-initialiser_base()
 
 def importer_codes():
-    with open(os.path.join(os.path.dirname(__file__), "codes.json"), "r", encoding="utf-8") as fichier:
+    with open(
+        os.path.join(os.path.dirname(__file__), "codes.json"),
+        "r",
+        encoding="utf-8"
+    ) as fichier:
         codes = json.load(fichier)
 
-    connexion = sqlite3.connect("codes.db")
-    curseur = connexion.cursor()
+    connexion = connexion_base()
+    curseur = CurseurCompatible(connexion)
 
     for code, description in codes.items():
         code = code.strip()
@@ -43,13 +83,10 @@ def importer_codes():
     connexion.commit()
     connexion.close()
 
+
+initialiser_base()
 importer_codes()
 
-
-importer_codes()
-
-
-app = Flask(__name__)
 
 @app.route("/")
 def accueil():
@@ -269,7 +306,7 @@ def calculatrice():
 
 @app.route("/modifier-code/<code>", methods=["GET", "POST"])
 def modifier_code(code):
-    connexion = sqlite3.connect("codes.db")
+    connexion = connexion_base()
     curseur = connexion.cursor()
 
     curseur.execute(
@@ -289,7 +326,7 @@ def modifier_code(code):
     if request.method == "POST":
         description = request.form["description"]
 
-        connexion = sqlite3.connect("codes.db")
+        connexion = connexion_base()
         curseur = connexion.cursor()
 
         curseur.execute(
@@ -366,7 +403,7 @@ def modifier_code(code):
 
 @app.route("/supprimer-code/<code>", methods=["POST"])
 def supprimer_code(code):
-    connexion = sqlite3.connect("codes.db")
+    connexion = connexion_base()
     curseur = connexion.cursor()
 
     curseur.execute(
@@ -383,7 +420,7 @@ def supprimer_code(code):
 
 @app.route("/voir-code/<code>")
 def voir_code(code):
-    connexion = sqlite3.connect("codes.db")
+    connexion = connexion_base()
     curseur = connexion.cursor()
 
     curseur.execute("SELECT code, description FROM codes")
@@ -465,7 +502,7 @@ def voir_code(code):
 
 @app.route("/liste-codes")
 def liste_codes():
-    connexion = sqlite3.connect("codes.db")
+    connexion = connexion_base()
     curseur = connexion.cursor()
 
     curseur.execute("SELECT code, description FROM codes")
@@ -556,7 +593,7 @@ def ajouter_code():
         code = donnees["code"]
         description = donnees["description"]
 
-        connexion = sqlite3.connect("codes.db")
+        connexion = connexion_base()
         curseur = connexion.cursor()
 
         curseur.execute("SELECT code FROM codes WHERE code = ?", (code,))
@@ -688,7 +725,7 @@ def ajouter_code():
 
 @app.route("/codes-erreurs")
 def codes_erreurs():
-    connexion = sqlite3.connect("codes.db")
+    connexion = connexion_base()
     curseur = connexion.cursor()
 
     curseur.execute("SELECT code, description FROM codes")
