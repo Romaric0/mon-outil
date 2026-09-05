@@ -144,9 +144,15 @@ def accueil():
                 <button>Codes erreurs</button>
             </a>
 
+            <a href="/clients">
+                <button>Clients</button>
+            </a>
+            
+            <!--
             <a href="/calculatrice">
                 <button>Calculatrice</button>
             </a>
+            -->
 
         </body>
     </html>
